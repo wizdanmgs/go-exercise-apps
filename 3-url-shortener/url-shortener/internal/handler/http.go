@@ -34,11 +34,18 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	code := h.shortener.Create(req.URL, time.Duration(req.TTL)*time.Second)
+	code, err := h.shortener.Create(req.URL, time.Duration(req.TTL)*time.Second)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	resp := createResponse{Code: code}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h *Handler) Redirect(w http.ResponseWriter, r *http.Request) {

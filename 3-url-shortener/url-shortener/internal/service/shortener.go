@@ -3,11 +3,14 @@ package service
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"time"
 
 	"url-shortener/internal/model"
 	"url-shortener/internal/store"
 )
+
+var ErrCollisionLimit = errors.New("unable to generate unique short code")
 
 type Shortener struct {
 	store *store.MemoryStore
@@ -17,17 +20,26 @@ func NewShortener(s *store.MemoryStore) *Shortener {
 	return &Shortener{store: s}
 }
 
-func (s *Shortener) Create(original string, ttl time.Duration) string {
-	code := generateCode(original)
+func (s *Shortener) Create(original string, ttl time.Duration) (string, error) {
+	const maxAttempts uint8 = 5
 
-	url := model.URL{
-		Code:      code,
-		Original:  original,
-		ExpiresAt: time.Now().Add(ttl),
+	for range maxAttempts {
+		code := generateCode(original)
+
+		if !s.store.Exists(code) {
+			url := model.URL{
+				Code:      code,
+				Original:  original,
+				ExpiresAt: time.Now().Add(ttl),
+			}
+
+			s.store.Save(url)
+			return code, nil
+		}
 	}
 
-	s.store.Save(url)
-	return code
+	return "", ErrCollisionLimit
+
 }
 
 func (s *Shortener) Resolve(code string) (string, bool) {
@@ -40,6 +52,7 @@ func (s *Shortener) Resolve(code string) (string, bool) {
 		s.store.Delete(code)
 		return "", false
 	}
+
 	return url.Original, ok
 }
 

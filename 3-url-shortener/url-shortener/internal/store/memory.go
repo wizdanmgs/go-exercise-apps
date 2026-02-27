@@ -32,3 +32,10 @@ func (m *MemoryStore) Delete(code string) {
 	defer m.mu.Unlock()
 	delete(m.data, code)
 }
+
+func (m *MemoryStore) Exists(code string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	_, ok := m.data[code]
+	return ok
+}
