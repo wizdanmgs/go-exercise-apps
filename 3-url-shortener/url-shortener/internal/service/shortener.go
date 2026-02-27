@@ -13,10 +13,10 @@ import (
 var ErrCollisionLimit = errors.New("unable to generate unique short code")
 
 type Shortener struct {
-	store *store.MemoryStore
+	store store.URLStore
 }
 
-func NewShortener(s *store.MemoryStore) *Shortener {
+func NewShortener(s store.URLStore) *Shortener {
 	return &Shortener{store: s}
 }
 

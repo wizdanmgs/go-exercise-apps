@@ -10,6 +10,8 @@ type MemoryStore struct {
 	data map[string]model.URL
 }
 
+var _ URLStore = (*MemoryStore)(nil) // compile-time check
+
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{data: map[string]model.URL{}}
 }
