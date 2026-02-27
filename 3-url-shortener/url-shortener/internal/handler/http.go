@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+
 	"url-shortener/internal/service"
 )
 
@@ -32,11 +35,14 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	code := h.shortener.Create(req.URL, time.Duration(req.TTL)*time.Second)
-	json.NewEncoder(w).Encode(createResponse{Code: code})
+
+	resp := createResponse{Code: code}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 
 func (h *Handler) Redirect(w http.ResponseWriter, r *http.Request) {
-	code := r.URL.Path[1:] // /abc123 -> abc123
+	code := chi.URLParam(r, "code")
 	original, ok := h.shortener.Resolve(code)
 	if !ok {
 		http.NotFound(w, r)
