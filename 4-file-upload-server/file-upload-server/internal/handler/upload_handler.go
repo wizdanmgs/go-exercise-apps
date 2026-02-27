@@ -16,11 +16,6 @@ func NewUploadHandler(s *service.UploadService) *UploadHandler {
 }
 
 func (h *UploadHandler) Upload(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	err := r.ParseMultipartForm(10 << 20) // 10MB max memory
 	if err != nil {
 		http.Error(w, "invalid form", http.StatusBadRequest)
@@ -47,6 +42,7 @@ func (h *UploadHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	response := map[string]string{
 		"message":  "upload successful",
 		"filename": filename,
+		"url":      "/uploads/" + filename,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
