@@ -1,7 +1,7 @@
 package service
 
 import (
-	"crypto/sha256"
+	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"time"
@@ -57,7 +57,7 @@ func (s *Shortener) Resolve(code string) (string, bool) {
 }
 
 func generateCode(input string) string {
-	hash := sha256.Sum256([]byte(input + time.Now().String()))
-	encoded := base64.URLEncoding.EncodeToString(hash[:])
-	return encoded[:8] // short code length
+	b := make([]byte, 6)
+	rand.Read(b)
+	return base64.URLEncoding.EncodeToString(b)[:8]
 }
