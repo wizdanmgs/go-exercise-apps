@@ -16,8 +16,8 @@ func NewHTTPFetcher(client *http.Client) *HTTPFetcher {
 	return &HTTPFetcher{client: client}
 }
 
-func (h *HTTPFetcher) FetchTitle(url string) (string, error) {
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+func (h *HTTPFetcher) FetchTitle(ctx context.Context, url string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}

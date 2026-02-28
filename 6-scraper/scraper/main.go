@@ -24,6 +24,7 @@ func main() {
 		fetcher,
 		5, // workers
 		2, // 2 req/sec
+		2, // burst size
 	)
 
 	urls := []string{

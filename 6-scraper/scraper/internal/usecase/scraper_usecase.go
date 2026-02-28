@@ -3,26 +3,32 @@ package usecase
 import (
 	"context"
 	"sync"
-	"time"
 
 	"scraper/internal/domain"
+
+	"golang.org/x/time/rate"
 )
 
 type ScraperUsecase struct {
 	fetcher     domain.Fetcher
 	workerCount int
-	rateLimiter <-chan time.Time
+	limiter     *rate.Limiter
 }
 
 func NewScraperUsecase(
 	fetcher domain.Fetcher,
 	workerCount int,
 	requestsPerSecond int,
+	burst int,
 ) *ScraperUsecase {
+	limiter := rate.NewLimiter(
+		rate.Limit(requestsPerSecond),
+		burst,
+	)
 	return &ScraperUsecase{
 		fetcher:     fetcher,
 		workerCount: workerCount,
-		rateLimiter: time.Tick(time.Second / time.Duration(requestsPerSecond)),
+		limiter:     limiter,
 	}
 }
 
@@ -91,9 +97,13 @@ func (s *ScraperUsecase) worker(
 				return
 			}
 
-			<-s.rateLimiter
+			// Rate limiting (context-aware)
+			if err := s.limiter.Wait(ctx); err != nil {
+				results <- result{err: err}
+				return
+			}
 
-			title, err := s.fetcher.FetchTitle(j.url)
+			title, err := s.fetcher.FetchTitle(ctx, j.url)
 			if err != nil {
 				results <- result{err: err}
 				continue
