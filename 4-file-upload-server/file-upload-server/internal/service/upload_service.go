@@ -20,7 +20,7 @@ func NewUploadService(uploadDir string) *UploadService {
 	return &UploadService{uploadDir: uploadDir}
 }
 
-func (s *UploadService) SaveFile(file multipart.File, header *multipart.FileHeader) (string, error) {
+func (s *UploadService) SaveFile(file io.ReadSeeker, header *multipart.FileHeader) (string, error) {
 	// Validate file type
 	err := validator.ValidateImage(file)
 	if err != nil {

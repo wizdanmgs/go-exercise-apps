@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"file-upload-server/internal/validator"
 	"mime/multipart"
 	"os"
 	"path/filepath"
@@ -21,7 +22,7 @@ func TestSaveFile(t *testing.T) {
 
 	service := NewUploadService(tempDir)
 
-	validJPEG := append([]byte{0xFF, 0xD8, 0xFF}, make([]byte, 509)...)
+	validJPEG := validator.GenerateJPEG()
 	invalidFile := []byte("not an image")
 
 	tests := []struct {

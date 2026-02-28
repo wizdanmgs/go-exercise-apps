@@ -13,12 +13,12 @@ func TestValidateImage(t *testing.T) {
 	}{
 		{
 			name:      "valid jpeg",
-			content:   append([]byte{0xFF, 0xD8, 0xFF}, make([]byte, 509)...),
+			content:   GenerateJPEG(),
 			expectErr: false,
 		},
 		{
 			name:      "valid png",
-			content:   append([]byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}, make([]byte, 504)...),
+			content:   GeneratePNG(),
 			expectErr: false,
 		},
 		{

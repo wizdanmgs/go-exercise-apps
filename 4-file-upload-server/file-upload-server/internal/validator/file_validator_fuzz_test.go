@@ -2,17 +2,19 @@ package validator
 
 import (
 	"bytes"
-	"net/http"
+	"image"
 	"testing"
 )
 
 func FuzzValidateImage(f *testing.F) {
 	// ---- Seed corpus (important!) ----
 
-	f.Add([]byte{})                                                                             // empty
-	f.Add([]byte("hello world"))                                                                // random text
-	f.Add(append([]byte{0xFF, 0xD8, 0xFF}, make([]byte, 509)...))                               // jpeg
-	f.Add(append([]byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}, make([]byte, 504)...)) // png
+	f.Add([]byte{})              // empty
+	f.Add([]byte("hello world")) // random text
+
+	// Add real valid JPEG Seed
+	validJPEG := GenerateJPEG()
+	f.Add(validJPEG)
 
 	// ---- Fuzz function ----
 
@@ -30,15 +32,9 @@ func FuzzValidateImage(f *testing.F) {
 				t.Fatal(rErr.Error())
 			}
 
-			buf := make([]byte, 512)
-			if _, rErr := reader.Read(buf); rErr != nil {
-				t.Fatal(rErr.Error())
-			}
-
-			mime := http.DetectContentType(buf)
-
-			if !allowedTypes[mime] {
-				t.Fatalf("validator allowed unexpected mime: %s", mime)
+			_, _, decodeErr := image.DecodeConfig(reader)
+			if decodeErr != nil {
+				t.Fatalf("validator accepted undecodable image")
 			}
 		}
 	})

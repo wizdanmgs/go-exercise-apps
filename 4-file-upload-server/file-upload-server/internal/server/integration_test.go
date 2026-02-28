@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"file-upload-server/internal/validator"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -18,7 +19,7 @@ func TestUploadAndServeIntegration(t *testing.T) {
 	router := NewRouter(tempDir)
 
 	// Step 1: Upload File
-	imageData := append([]byte{0xFF, 0xD8, 0xFF}, make([]byte, 509)...)
+	imageData := validator.GenerateJPEG()
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"file-upload-server/internal/service"
+	"file-upload-server/internal/validator"
 )
 
 func TestUploadHandler(t *testing.T) {
@@ -22,7 +23,7 @@ func TestUploadHandler(t *testing.T) {
 	}{
 		{
 			name:       "valid upload",
-			fileData:   append([]byte{0xFF, 0xD8, 0xFF}, make([]byte, 509)...),
+			fileData:   validator.GenerateJPEG(),
 			expectCode: http.StatusOK,
 		},
 		{
