@@ -22,9 +22,11 @@ func main() {
 
 	scraper := usecase.NewScraperUsecase(
 		fetcher,
-		5, // workers
-		2, // 2 req/sec
-		2, // burst size
+		5,                    // workers
+		2,                    // 2 req/sec
+		2,                    // burst size
+		3,                    // max retries
+		500*time.Millisecond, // base delay
 	)
 
 	urls := []string{

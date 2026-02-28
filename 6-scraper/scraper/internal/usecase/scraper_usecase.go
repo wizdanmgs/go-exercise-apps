@@ -2,7 +2,9 @@ package usecase
 
 import (
 	"context"
+	"math/rand"
 	"sync"
+	"time"
 
 	"scraper/internal/domain"
 
@@ -13,6 +15,8 @@ type ScraperUsecase struct {
 	fetcher     domain.Fetcher
 	workerCount int
 	limiter     *rate.Limiter
+	maxRetries  int
+	baseDelay   time.Duration
 }
 
 func NewScraperUsecase(
@@ -20,6 +24,8 @@ func NewScraperUsecase(
 	workerCount int,
 	requestsPerSecond int,
 	burst int,
+	maxRetries int,
+	baseDelay time.Duration,
 ) *ScraperUsecase {
 	limiter := rate.NewLimiter(
 		rate.Limit(requestsPerSecond),
@@ -29,6 +35,8 @@ func NewScraperUsecase(
 		fetcher:     fetcher,
 		workerCount: workerCount,
 		limiter:     limiter,
+		maxRetries:  maxRetries,
+		baseDelay:   baseDelay,
 	}
 }
 
@@ -103,7 +111,7 @@ func (s *ScraperUsecase) worker(
 				return
 			}
 
-			title, err := s.fetcher.FetchTitle(ctx, j.url)
+			title, err := s.fetchWithRetry(ctx, j.url)
 			if err != nil {
 				results <- result{err: err}
 				continue
@@ -117,4 +125,44 @@ func (s *ScraperUsecase) worker(
 			}
 		}
 	}
+}
+
+func (s *ScraperUsecase) fetchWithRetry(
+	ctx context.Context,
+	url string,
+) (string, error) {
+	var lastErr error
+
+	for attempt := 0; attempt < s.maxRetries; attempt++ {
+		// Rate limit per attempt
+		if err := s.limiter.Wait(ctx); err != nil {
+			return "", err
+		}
+
+		title, err := s.fetcher.FetchTitle(ctx, url)
+		if err == nil {
+			return title, nil
+		}
+
+		lastErr = err
+
+		// If last attempt, break
+		if attempt == s.maxRetries {
+			break
+		}
+
+		// Exponential backoff
+		backoff := s.baseDelay * time.Duration(1<<attempt)
+
+		// Add jitter (up to 50%)
+		jitter := time.Duration(rand.Int63n(int64(backoff / 2)))
+		delay := backoff + jitter
+
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(delay):
+		}
+	}
+	return "", lastErr
 }
