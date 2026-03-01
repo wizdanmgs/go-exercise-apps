@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/rand"
 	"net"
 	"net/url"
@@ -11,12 +12,14 @@ import (
 
 	"scraper/internal/domain"
 
+	"github.com/temoto/robotstxt"
 	"golang.org/x/time/rate"
 )
 
 type ScraperUsecase struct {
-	fetcher     domain.Fetcher
-	workerCount int
+	fetcher       domain.Fetcher
+	robotsFetcher domain.RobotsFetcher
+	workerCount   int
 
 	globalLimiter *rate.Limiter
 
@@ -28,10 +31,19 @@ type ScraperUsecase struct {
 
 	domainRPS   int
 	domainBurst int
+
+	breakers         map[string]*CircuitBreaker
+	breakerThreshold int
+	breakerTImeout   time.Duration
+
+	robotsCache map[string]*robotstxt.RobotsData
+	robotsMu    sync.Mutex
+	userAgent   string
 }
 
 func NewScraperUsecase(
 	fetcher domain.Fetcher,
+	robotsFetcher domain.RobotsFetcher,
 	workerCount int,
 
 	globalRPS int,
@@ -45,8 +57,10 @@ func NewScraperUsecase(
 ) *ScraperUsecase {
 
 	return &ScraperUsecase{
-		fetcher:        fetcher,
-		workerCount:    workerCount,
+		fetcher:       fetcher,
+		robotsFetcher: robotsFetcher,
+		workerCount:   workerCount,
+
 		globalLimiter:  rate.NewLimiter(rate.Limit(globalRPS), globalBurst),
 		domainLimiters: make(map[string]*rate.Limiter),
 
@@ -55,6 +69,13 @@ func NewScraperUsecase(
 
 		maxRetries: maxRetries,
 		baseDelay:  baseDelay,
+
+		breakers:         make(map[string]*CircuitBreaker),
+		breakerThreshold: 5,
+		breakerTImeout:   30 * time.Second,
+
+		robotsCache: make(map[string]*robotstxt.RobotsData),
+		userAgent:   "MyCrawlerBot",
 	}
 }
 
@@ -154,7 +175,30 @@ func (s *ScraperUsecase) fetchWithRetry(
 		return "", err
 	}
 
+	group, err := s.getRobots(ctx, host)
+	if err == nil && group != nil {
+		allowed := group.Test(rawUrl)
+		if !allowed {
+			return "", fmt.Errorf("blocked by robots.txt: %s", rawUrl)
+		}
+	}
+
+	if group != nil && group.CrawlDelay > 0 {
+		delay := time.Duration(group.CrawlDelay) * time.Second
+
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(delay):
+		}
+	}
+
 	domainLimiter := s.getDomainLimiter(host)
+	breaker := s.getBreaker(host)
+
+	if !breaker.Allow() {
+		return "", fmt.Errorf("circuit open for domain %s", host)
+	}
 
 	var lastErr error
 
@@ -178,10 +222,12 @@ func (s *ScraperUsecase) fetchWithRetry(
 
 		// Stop if not retryable
 		if !isRetryable(status, err) {
+			breaker.Failure()
 			return "", err
 		}
 		// If last attempt, break
 		if attempt == s.maxRetries {
+			breaker.Failure()
 			break
 		}
 
@@ -245,4 +291,47 @@ func extractHost(rawUrl string) (string, error) {
 		return "", err
 	}
 	return u.Hostname(), nil
+}
+
+func (s *ScraperUsecase) getBreaker(host string) *CircuitBreaker {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	b, exists := s.breakers[host]
+	if !exists {
+		b = NewCircuitBreaker(s.breakerThreshold, s.breakerTImeout)
+		s.breakers[host] = b
+	}
+
+	return b
+}
+
+func (s *ScraperUsecase) getRobots(
+	ctx context.Context,
+	host string,
+) (*robotstxt.Group, error) {
+	s.robotsMu.Lock()
+	data, exists := s.robotsCache[host]
+	s.robotsMu.Unlock()
+
+	if !exists {
+		robotsUrl := fmt.Sprintf("https://%s/robots.txt", host)
+
+		body, err := s.robotsFetcher.FetchRobots(ctx, robotsUrl)
+		if err != nil {
+			return nil, err
+		}
+
+		data, err = robotstxt.FromBytes(body)
+		if err != nil {
+			return nil, err
+		}
+
+		s.robotsMu.Lock()
+		s.robotsCache[host] = data
+		s.robotsMu.Unlock()
+	}
+
+	group := data.FindGroup(s.userAgent)
+	return group, nil
 }

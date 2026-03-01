@@ -19,9 +19,11 @@ func main() {
 	}
 
 	fetcher := repository.NewHTTPFetcher(client)
+	robotsFetcher := repository.NewHTTPRobotsFetcher(client)
 
 	scraper := usecase.NewScraperUsecase(
 		fetcher,
+		robotsFetcher,
 		10, // workers
 
 		5, 5, // global: 5 rps, burst 5
