@@ -31,8 +31,8 @@ func main() {
 
 	urls := []string{
 		"https://golang.org",
-		"https://github.com",
-		"https://google.com",
+		"https://wikiless.tiekoetter.com/",
+		"https://example.com",
 	}
 
 	pages, _ := scraper.Crawl(ctx, urls)

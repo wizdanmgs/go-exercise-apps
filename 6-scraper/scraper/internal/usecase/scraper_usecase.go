@@ -2,7 +2,9 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"math/rand"
+	"net"
 	"sync"
 	"time"
 
@@ -139,13 +141,17 @@ func (s *ScraperUsecase) fetchWithRetry(
 			return "", err
 		}
 
-		title, err := s.fetcher.FetchTitle(ctx, url)
+		title, status, err := s.fetcher.FetchTitle(ctx, url)
 		if err == nil {
 			return title, nil
 		}
 
 		lastErr = err
 
+		// Stop if not retryable
+		if !isRetryable(status, err) {
+			return "", err
+		}
 		// If last attempt, break
 		if attempt == s.maxRetries {
 			break
@@ -165,4 +171,29 @@ func (s *ScraperUsecase) fetchWithRetry(
 		}
 	}
 	return "", lastErr
+}
+
+func isRetryable(status int, err error) bool {
+	// Network-level errors
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		if netErr.Timeout() {
+			return true
+		}
+	}
+
+	// Retry on context deadline exceeded? NO
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+
+	// HTTP-level retry logic
+	switch {
+	case status == 429:
+		return true
+	case status >= 500 && status <= 599:
+		return true
+	}
+
+	return false
 }

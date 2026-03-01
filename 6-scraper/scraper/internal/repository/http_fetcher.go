@@ -16,21 +16,25 @@ func NewHTTPFetcher(client *http.Client) *HTTPFetcher {
 	return &HTTPFetcher{client: client}
 }
 
-func (h *HTTPFetcher) FetchTitle(ctx context.Context, url string) (string, error) {
+func (h *HTTPFetcher) FetchTitle(ctx context.Context, url string) (string, int, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	resp, err := h.client.Do(req)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode >= 400 {
+		return "", resp.StatusCode, fmt.Errorf("http error: %d", resp.StatusCode)
+	}
+
 	doc, err := html.Parse(resp.Body)
 	if err != nil {
-		return "", err
+		return "", resp.StatusCode, err
 	}
 
 	var title string
@@ -48,8 +52,8 @@ func (h *HTTPFetcher) FetchTitle(ctx context.Context, url string) (string, error
 	traverse(doc)
 
 	if title == "" {
-		return "", fmt.Errorf("title not found")
+		return "", resp.StatusCode, fmt.Errorf("title not found")
 	}
 
-	return title, nil
+	return title, resp.StatusCode, nil
 }

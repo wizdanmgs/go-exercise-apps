@@ -8,5 +8,5 @@ type Page struct {
 }
 
 type Fetcher interface {
-	FetchTitle(ctx context.Context, url string) (string, error)
+	FetchTitle(ctx context.Context, url string) (string, int, error)
 }
