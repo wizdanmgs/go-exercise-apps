@@ -22,16 +22,22 @@ func main() {
 
 	scraper := usecase.NewScraperUsecase(
 		fetcher,
-		5,                    // workers
-		2,                    // 2 req/sec
-		2,                    // burst size
+		10, // workers
+
+		5, 5, // global: 5 rps, burst 5
+		2, 2, // per-domain: 2 rps, burst 2
+
 		3,                    // max retries
 		500*time.Millisecond, // base delay
 	)
-
 	urls := []string{
 		"https://golang.org",
+		"https://golang.org",
 		"https://wikiless.tiekoetter.com/",
+		"https://wikiless.tiekoetter.com/",
+		"https://wikiless.tiekoetter.com/",
+		"https://example.com",
+		"https://example.com",
 		"https://example.com",
 	}
 

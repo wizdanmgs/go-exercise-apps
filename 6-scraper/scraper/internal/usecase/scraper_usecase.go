@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math/rand"
 	"net"
+	"net/url"
 	"sync"
 	"time"
 
@@ -16,29 +17,44 @@ import (
 type ScraperUsecase struct {
 	fetcher     domain.Fetcher
 	workerCount int
-	limiter     *rate.Limiter
-	maxRetries  int
-	baseDelay   time.Duration
+
+	globalLimiter *rate.Limiter
+
+	domainLimiters map[string]*rate.Limiter
+	mu             sync.Mutex
+
+	maxRetries int
+	baseDelay  time.Duration
+
+	domainRPS   int
+	domainBurst int
 }
 
 func NewScraperUsecase(
 	fetcher domain.Fetcher,
 	workerCount int,
-	requestsPerSecond int,
-	burst int,
+
+	globalRPS int,
+	globalBurst int,
+
+	domainRPS int,
+	domainBurst int,
+
 	maxRetries int,
 	baseDelay time.Duration,
 ) *ScraperUsecase {
-	limiter := rate.NewLimiter(
-		rate.Limit(requestsPerSecond),
-		burst,
-	)
+
 	return &ScraperUsecase{
-		fetcher:     fetcher,
-		workerCount: workerCount,
-		limiter:     limiter,
-		maxRetries:  maxRetries,
-		baseDelay:   baseDelay,
+		fetcher:        fetcher,
+		workerCount:    workerCount,
+		globalLimiter:  rate.NewLimiter(rate.Limit(globalRPS), globalBurst),
+		domainLimiters: make(map[string]*rate.Limiter),
+
+		domainRPS:   domainRPS,
+		domainBurst: domainBurst,
+
+		maxRetries: maxRetries,
+		baseDelay:  baseDelay,
 	}
 }
 
@@ -108,7 +124,7 @@ func (s *ScraperUsecase) worker(
 			}
 
 			// Rate limiting (context-aware)
-			if err := s.limiter.Wait(ctx); err != nil {
+			if err := s.globalLimiter.Wait(ctx); err != nil {
 				results <- result{err: err}
 				return
 			}
@@ -131,17 +147,29 @@ func (s *ScraperUsecase) worker(
 
 func (s *ScraperUsecase) fetchWithRetry(
 	ctx context.Context,
-	url string,
+	rawUrl string,
 ) (string, error) {
+	host, err := extractHost(rawUrl)
+	if err != nil {
+		return "", err
+	}
+
+	domainLimiter := s.getDomainLimiter(host)
+
 	var lastErr error
 
 	for attempt := 0; attempt < s.maxRetries; attempt++ {
-		// Rate limit per attempt
-		if err := s.limiter.Wait(ctx); err != nil {
+		// Rate limit per attempt for Global
+		if err := s.globalLimiter.Wait(ctx); err != nil {
 			return "", err
 		}
 
-		title, status, err := s.fetcher.FetchTitle(ctx, url)
+		// Domain-specific rate limit per attempt
+		if err := domainLimiter.Wait(ctx); err != nil {
+			return "", err
+		}
+
+		title, status, err := s.fetcher.FetchTitle(ctx, rawUrl)
 		if err == nil {
 			return title, nil
 		}
@@ -196,4 +224,25 @@ func isRetryable(status int, err error) bool {
 	}
 
 	return false
+}
+
+func (s *ScraperUsecase) getDomainLimiter(host string) *rate.Limiter {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	limiter, exists := s.domainLimiters[host]
+	if !exists {
+		limiter = rate.NewLimiter(rate.Limit(s.domainRPS), s.domainBurst)
+		s.domainLimiters[host] = limiter
+	}
+
+	return limiter
+}
+
+func extractHost(rawUrl string) (string, error) {
+	u, err := url.Parse(rawUrl)
+	if err != nil {
+		return "", err
+	}
+	return u.Hostname(), nil
 }
