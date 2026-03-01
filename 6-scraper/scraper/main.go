@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
+	"scraper/internal/infrastructure/config"
 	"scraper/internal/repository"
 	"scraper/internal/usecase"
 )
@@ -13,6 +15,13 @@ import (
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+
+	// Load config
+	loader := config.NewJSONLoader("config.json")
+	cfg, err := loader.Load()
+	if err != nil {
+		log.Fatalf("failed to load config: %v", err)
+	}
 
 	client := &http.Client{
 		Timeout: 10 * time.Second,
@@ -32,18 +41,11 @@ func main() {
 		3,                    // max retries
 		500*time.Millisecond, // base delay
 	)
-	urls := []string{
-		"https://golang.org",
-		"https://golang.org",
-		"https://wikiless.tiekoetter.com/",
-		"https://wikiless.tiekoetter.com/",
-		"https://wikiless.tiekoetter.com/",
-		"https://example.com",
-		"https://example.com",
-		"https://example.com",
-	}
 
-	pages, _ := scraper.Crawl(ctx, urls)
+	pages, err := scraper.Crawl(ctx, cfg.URLs)
+	if err != nil {
+		log.Fatalf("crawl failed: %v", err)
+	}
 
 	for _, p := range pages {
 		fmt.Printf("%s -> %s\n", p.URL, p.Title)
