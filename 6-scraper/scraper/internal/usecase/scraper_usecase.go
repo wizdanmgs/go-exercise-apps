@@ -144,12 +144,6 @@ func (s *ScraperUsecase) worker(
 				return
 			}
 
-			// Rate limiting (context-aware)
-			if err := s.globalLimiter.Wait(ctx); err != nil {
-				results <- result{err: err}
-				return
-			}
-
 			title, err := s.fetchWithRetry(ctx, j.url)
 			if err != nil {
 				results <- result{err: err}
@@ -175,10 +169,20 @@ func (s *ScraperUsecase) fetchWithRetry(
 		return "", err
 	}
 
-	group, err := s.getRobots(ctx, host)
+	u, _ := url.Parse(rawUrl)
+
+	group, err := s.getRobots(ctx, u.Scheme, host)
 	if err == nil && group != nil {
-		allowed := group.Test(rawUrl)
-		if !allowed {
+		path := u.EscapedPath()
+		if path == "" {
+			path = "/"
+		}
+
+		if u.RawQuery != "" {
+			path = path + "?" + u.RawQuery
+		}
+
+		if !group.Test(path) {
 			return "", fmt.Errorf("blocked by robots.txt: %s", rawUrl)
 		}
 	}
@@ -202,7 +206,7 @@ func (s *ScraperUsecase) fetchWithRetry(
 
 	var lastErr error
 
-	for attempt := 0; attempt < s.maxRetries; attempt++ {
+	for attempt := 0; attempt <= s.maxRetries; attempt++ {
 		// Rate limit per attempt for Global
 		if err := s.globalLimiter.Wait(ctx); err != nil {
 			return "", err
@@ -214,7 +218,8 @@ func (s *ScraperUsecase) fetchWithRetry(
 		}
 
 		title, status, err := s.fetcher.FetchTitle(ctx, rawUrl)
-		if err == nil {
+		if err == nil && status < 400 {
+			breaker.Success()
 			return title, nil
 		}
 
@@ -228,7 +233,7 @@ func (s *ScraperUsecase) fetchWithRetry(
 		// If last attempt, break
 		if attempt == s.maxRetries {
 			breaker.Failure()
-			break
+			return "", err
 		}
 
 		// Exponential backoff
@@ -290,7 +295,7 @@ func extractHost(rawUrl string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return u.Hostname(), nil
+	return u.Host, nil
 }
 
 func (s *ScraperUsecase) getBreaker(host string) *CircuitBreaker {
@@ -308,6 +313,7 @@ func (s *ScraperUsecase) getBreaker(host string) *CircuitBreaker {
 
 func (s *ScraperUsecase) getRobots(
 	ctx context.Context,
+	scheme string,
 	host string,
 ) (*robotstxt.Group, error) {
 	s.robotsMu.Lock()
@@ -315,7 +321,7 @@ func (s *ScraperUsecase) getRobots(
 	s.robotsMu.Unlock()
 
 	if !exists {
-		robotsUrl := fmt.Sprintf("https://%s/robots.txt", host)
+		robotsUrl := fmt.Sprintf("%s://%s/robots.txt", scheme, host)
 
 		body, err := s.robotsFetcher.FetchRobots(ctx, robotsUrl)
 		if err != nil {
@@ -333,5 +339,8 @@ func (s *ScraperUsecase) getRobots(
 	}
 
 	group := data.FindGroup(s.userAgent)
+	if group == nil {
+		group = data.FindGroup("*")
+	}
 	return group, nil
 }
