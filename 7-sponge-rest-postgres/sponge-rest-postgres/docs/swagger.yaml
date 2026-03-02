@@ -1,0 +1,284 @@
+definitions:
+  types.Column:
+    properties:
+      exp:
+        description: expressions, which default to = when the value is null, have
+          =, !=, >, >=, <, <=, like
+        type: string
+      logic:
+        description: logical type, default value is "and", support &, and, ||, or
+        type: string
+      name:
+        description: column name
+        type: string
+      value:
+        description: column value
+    type: object
+  types.CreateTaskReply:
+    properties:
+      code:
+        description: return code
+        type: integer
+      data:
+        description: return data
+        properties:
+          id:
+            description: id
+            type: integer
+        type: object
+      msg:
+        description: return information description
+        type: string
+    type: object
+  types.CreateTaskRequest:
+    properties:
+      description:
+        type: string
+      status:
+        type: string
+      title:
+        type: string
+    type: object
+  types.DeleteTaskByIDReply:
+    properties:
+      code:
+        description: return code
+        type: integer
+      data:
+        description: return data
+        type: object
+      msg:
+        description: return information description
+        type: string
+    type: object
+  types.GetTaskByIDReply:
+    properties:
+      code:
+        description: return code
+        type: integer
+      data:
+        description: return data
+        properties:
+          task:
+            $ref: '#/definitions/types.TaskObjDetail'
+        type: object
+      msg:
+        description: return information description
+        type: string
+    type: object
+  types.ListTasksReply:
+    properties:
+      code:
+        description: return code
+        type: integer
+      data:
+        description: return data
+        properties:
+          tasks:
+            items:
+              $ref: '#/definitions/types.TaskObjDetail'
+            type: array
+        type: object
+      msg:
+        description: return information description
+        type: string
+    type: object
+  types.Params:
+    properties:
+      columns:
+        description: query conditions
+        items:
+          $ref: '#/definitions/types.Column'
+        type: array
+      limit:
+        description: lines per page
+        type: integer
+      page:
+        description: page number, starting from page 0
+        type: integer
+      sort:
+        description: sorted fields, multi-column sorting separated by commas
+        type: string
+    type: object
+  types.TaskObjDetail:
+    properties:
+      createdAt:
+        type: string
+      description:
+        type: string
+      id:
+        description: convert to uint64 id
+        type: integer
+      status:
+        type: string
+      title:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  types.UpdateTaskByIDReply:
+    properties:
+      code:
+        description: return code
+        type: integer
+      data:
+        description: return data
+        type: object
+      msg:
+        description: return information description
+        type: string
+    type: object
+  types.UpdateTaskByIDRequest:
+    properties:
+      description:
+        type: string
+      id:
+        description: uint64 id
+        type: integer
+      status:
+        type: string
+      title:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: http server api docs
+  title: sponge_rest_postgres api docs
+  version: v1.0.0
+paths:
+  /api/v1/task:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new task entity using the provided data in the request
+        body.
+      parameters:
+      - description: task information
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/types.CreateTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.CreateTaskReply'
+      security:
+      - BearerAuth: []
+      summary: Create a new task
+      tags:
+      - task
+  /api/v1/task/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes a existing task identified by the given id in the path.
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.DeleteTaskByIDReply'
+      security:
+      - BearerAuth: []
+      summary: Delete a task by id
+      tags:
+      - task
+    get:
+      consumes:
+      - application/json
+      description: Gets detailed information of a task specified by the given id in
+        the path.
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.GetTaskByIDReply'
+      security:
+      - BearerAuth: []
+      summary: Get a task by id
+      tags:
+      - task
+    put:
+      consumes:
+      - application/json
+      description: Updates the specified task by given id in the path, support partial
+        update.
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: task information
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/types.UpdateTaskByIDRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.UpdateTaskByIDReply'
+      security:
+      - BearerAuth: []
+      summary: Update a task by id
+      tags:
+      - task
+  /api/v1/task/list:
+    post:
+      consumes:
+      - application/json
+      description: Returns a paginated list of task based on query filters, including
+        page number and size.
+      parameters:
+      - description: query parameters
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/types.Params'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.ListTasksReply'
+      security:
+      - BearerAuth: []
+      summary: Get a paginated list of tasks by custom conditions
+      tags:
+      - task
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    description: Type Bearer your-jwt-token to Value
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
