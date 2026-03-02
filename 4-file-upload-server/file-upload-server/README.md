@@ -31,16 +31,18 @@ This project demonstrates:
 
 ## Project Structure
 
-file-upload-server/  
-├── cmd/  
-│ └── server/  
-│ └── main.go  
-├── internal/  
-│ ├── handler/  
-│ ├── service/  
-│ ├── validator/  
-│ └── server/  
+```text.
+file-upload-server/
+├── cmd/
+│ └── server/
+│ └── main.go
+├── internal/
+│ ├── handler/
+│ ├── service/
+│ ├── validator/
+│ └── server/
 └── uploads/
+```
 
 ### Architecture
 

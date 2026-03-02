@@ -20,16 +20,18 @@ This project demonstrates:
 
 The project follows Clean Architecture:
 
+```text.
 .
 ├── cmd/
 │ └── main.go
 └── internal/
 ├── delivery/
 │ └── http/ -> HTTP handlers, DTOs, routing
-├── domain/ -> Business entities & domain errors  
- ├── usecase/ -> Application business logic  
- └── respository/
+├── domain/ -> Business entities & domain errors
+├── usecase/ -> Application business logic
+└── respository/
 └── memory/ -> Repository implementation (in-memory)
+```
 
 Dependency flow:
 

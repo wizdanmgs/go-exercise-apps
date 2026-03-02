@@ -58,16 +58,18 @@ This project demonstrates clean architecture principles and implements:
 
 ## Project Structure
 
-scraper/  
-├── cmd/  
-├── internal/  
-│ ├── domain/  
-│ └── usecase/  
-│ ├── scraper_usecase.go  
-│ ├── circuit_breaker.go  
-│ └── scraper_integration_test.go  
-├── go.mod  
+```text.
+scraper/
+├── cmd/
+├── internal/
+│ ├── domain/
+│ └── usecase/
+│ ├── scraper_usecase.go
+│ ├── circuit_breaker.go
+│ └── scraper_integration_test.go
+├── go.mod
 └── README.md
+```
 
 ---
 

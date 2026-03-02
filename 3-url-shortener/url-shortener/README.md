@@ -26,25 +26,27 @@ This project demonstrates:
 
 ## Project Structure
 
-url-shortener/  
-├── cmd/  
-│ └── server/  
-│ └── main.go  
-├── internal/  
-│ ├── handler/  
-│ │ ├── http.go  
-│ │ ├── http_integration_test.go  
-│ │ └── shutdown_integration_test.go  
-│ ├── model/  
-│ │ └── url.go  
-│ ├── service/  
-│ │ ├── shortener.go  
-│ │ └── shortener_test.go  
-│ └── store/  
-│ ├── store.go  
-│ └── memory.go  
-├── go.mod  
+```text.
+url-shortener/
+├── cmd/
+│ └── server/
+│ └── main.go
+├── internal/
+│ ├── handler/
+│ │ ├── http.go
+│ │ ├── http_integration_test.go
+│ │ └── shutdown_integration_test.go
+│ ├── model/
+│ │ └── url.go
+│ ├── service/
+│ │ ├── shortener.go
+│ │ └── shortener_test.go
+│ └── store/
+│ ├── store.go
+│ └── memory.go
+├── go.mod
 └── README.md
+```
 
 ---
 

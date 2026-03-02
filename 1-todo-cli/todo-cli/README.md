@@ -16,6 +16,7 @@ A simple Todo CLI application written in Go using Clean Architecture principles 
 
 ## Project Structure
 
+```text.
 todo-cli/
 │
 ├── cmd/
@@ -38,6 +39,7 @@ todo-cli/
 │ └── task_usecase.go
 │
 └── tasks.json
+```
 
 ---
 
